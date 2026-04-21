@@ -11,8 +11,7 @@
     {
       "id": "kw",
       "type": "keyword",
-      "name": "Keyword",
-      "description": "Keyword to trigger the extension",
+      "name": "Zen Browser Search",
       "default_value": "zen"
     },
     {
