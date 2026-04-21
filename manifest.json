@@ -1,0 +1,36 @@
+{
+  "required_api_version": "^2.0.0",
+  "name": "Zen Browser Launcher",
+  "description": "Open websites in Zen Browser",
+  "developer_name": "Claudio Sanches",
+  "icon": "images/icon.png",
+  "options": {
+    "query_debounce": 0.1
+  },
+  "preferences": [
+    {
+      "id": "kw",
+      "type": "keyword",
+      "name": "Zen Browser Search",
+      "description": "Search Zen Browser bookmarks/history and open URLs",
+      "default_value": "zen"
+    },
+    {
+      "id": "order",
+      "type": "select",
+      "name": "Histroy results order",
+      "default_value": "frecency",
+      "options": [
+        { "value": "frecency", "text": "Zen Browser Frecency" },
+        { "value": "visit", "text": "Visit Count" },
+        { "value": "recent", "text": "Last Visit" }
+      ]
+    },
+    {
+      "id": "limit",
+      "type": "input",
+      "name": "History results number",
+      "default_value": "5"
+    }
+  ]
+}
