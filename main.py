@@ -80,7 +80,7 @@ class KeywordQueryEventListener(EventListener):
         if not query:
             return RenderResultListAction([
                 ExtensionResultItem(
-                    icon="images/icon.png",
+                    icon="images/icon.svg",
                     name="Zen Browser Search",
                     description="Search bookmarks/history or type a URL",
                     highlightable=False,
@@ -102,7 +102,7 @@ class KeywordQueryEventListener(EventListener):
         if url_to_open:
             items.append(
                 ExtensionResultItem(
-                    icon="images/icon.png",
+                    icon="images/icon.svg",
                     name="Open URL",
                     description=url_to_open,
                     highlightable=False,
@@ -115,7 +115,7 @@ class KeywordQueryEventListener(EventListener):
         for url, label, _ in results:
             items.append(
                 ExtensionResultItem(
-                    icon="images/icon.png",
+                    icon="images/icon.svg",
                     name=label,
                     description=url,
                     highlightable=False,

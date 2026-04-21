@@ -3,7 +3,7 @@
   "name": "Zen Browser Search",
   "description": "Search bookmarks and history in Zen Browser",
   "developer_name": "Claudio Sanches",
-  "icon": "images/icon.png",
+  "icon": "images/icon.svg",
   "options": {
     "query_debounce": 0.1
   },
