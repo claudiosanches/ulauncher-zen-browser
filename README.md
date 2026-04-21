@@ -1,31 +1,56 @@
-# Ulauncher Zen Browser Launcher
+# Ulauncher Zen Browser Search
 
 ![screenshot](images/screenshot.png)
 
-Simple [Ulauncher](https://ulauncher.io) extension for opening websites in Zen Browser. The extension provides suggestions
-based on the browsing history as well as the bookmarks.
+Simple [Ulauncher](https://ulauncher.io) extension for searching bookmarks and history in Zen Browser.
+
+## Installation
+
+### Via Ulauncher Interface
+1. Open Ulauncher Settings -> Extensions -> Add extension.
+2. Paste the following URL:
+   `https://github.com/claudiosanches/ulauncher-zen-browser`
+3. Click **Add**.
+
+### Manual Installation (Developer Version)
+1. Open a terminal.
+2. Create the Ulauncher extensions directory if it doesn't exist:
+   ```bash
+   mkdir -p ~/.local/share/ulauncher/extensions
+   ```
+3. Clone this repository into the extensions folder:
+   ```bash
+   git clone https://github.com/claudiosanches/ulauncher-zen-browser ~/.local/share/ulauncher/extensions/com.github.claudiosanches.ulauncher-zen-browser
+   ```
+4. Restart Ulauncher.
 
 ## Features
 
 - Search through Zen Browser history and bookmarks.
-- Supports both local (`~/.zen`) and Flatpak (`~/.var/app/app.zen_browser/.zen`) installations.
-- Highly customizable results ordering.
+- Open URLs directly with automatic `https://` detection.
+- Supports both OS (`~/.zen`) and Flatpak (`~/.var/app/app.zen_browser.zen/.zen`) installations.
+- Customizable search types and results ordering.
 
 ## Settings
 
-In Ulauncher GUI, you can set the extension's preferences. Here, the **maximal number** of suggested items and the
-respective **sorting criteria** can be changed. The order of suggestions can be determined by:
+In Ulauncher GUI, you can set the following preferences:
 
-- **Last visit date**: Most recently visited pages first.
-- **Visit count**: Most frequently visited pages first.
-- **Zen Browser frecency**: Uses the [Mozilla Frecency algorithm](https://developer.mozilla.org/en-US/docs/Mozilla/Tech/Places/Frecency_algorithm) to rank results.
+- **Keyword**: Keyword to trigger the extension (defaults to `zen`).
+- **Search Type**: Choose between searching Bookmarks, History, or both.
+- **History Sorting**: Select the sorting criteria for history results:
+  - **Relevance (Frecency)**: (Recommended) Uses the [Mozilla Frecency algorithm](https://developer.mozilla.org/en-US/docs/Mozilla/Tech/Places/Frecency_algorithm) to rank results based on how often and how recently you visit them.
+  - **Visit count**: Most visited pages first.
+  - **Last visit**: Most recently visited pages first.
+- **Result Limit**: Maximum number of suggested items to display.
 
 ## Usage
 
-Open Ulauncher and type in the set up keyword (defaults to `zen`). You can then either provide a valid URL to open a
-webpage, or a search query to browse your browser's history and bookmarks.
+Open Ulauncher and type in the set up keyword (defaults to `zen`). 
 
-To open the selected URL, press **Enter**. You can also copy the URL to your input by pressing **ALT + ENTER**.
+- **Search**: Provide a search query to browse your browser's history and bookmarks.
+- **Open URL**: Provide a valid URL (e.g., `duckduckgo.com` or `https://github.com`) to open it directly.
+
+To open the selected item, press **Enter**. You can also copy the URL to your input by pressing **ALT + ENTER**.
 
 ## Troubleshooting
 
@@ -41,4 +66,4 @@ This project is based on and inspired by the [Ulauncher Firefox Launcher](https:
 
 ## License
 
-This project is licensed under the terms of the GPLv3 license. See the LICENSE file for details.
+This project is licensed under the terms of the GPLv3 license. See the [LICENSE](LICENSE) file for details.

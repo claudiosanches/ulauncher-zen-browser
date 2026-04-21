@@ -1,7 +1,7 @@
 {
   "required_api_version": "^2.0.0",
-  "name": "Zen Browser Launcher",
-  "description": "Open websites in Zen Browser",
+  "name": "Zen Browser Search",
+  "description": "Search bookmarks and history in Zen Browser",
   "developer_name": "Claudio Sanches",
   "icon": "images/icon.png",
   "options": {
@@ -11,17 +11,30 @@
     {
       "id": "kw",
       "type": "keyword",
-      "name": "Zen Browser Search",
-      "description": "Search Zen Browser bookmarks/history and open URLs",
+      "name": "Keyword",
+      "description": "Keyword to trigger the extension",
       "default_value": "zen"
+    },
+    {
+      "id": "search_type",
+      "type": "select",
+      "name": "Search Type",
+      "description": "Select what to search for",
+      "default_value": "both",
+      "options": [
+        { "value": "both", "text": "Bookmarks and History" },
+        { "value": "bookmarks", "text": "Bookmarks Only" },
+        { "value": "history", "text": "History Only" }
+      ]
     },
     {
       "id": "order",
       "type": "select",
-      "name": "Histroy results order",
+      "name": "History Sorting",
+      "description": "How to sort history results",
       "default_value": "frecency",
       "options": [
-        { "value": "frecency", "text": "Zen Browser Frecency" },
+        { "value": "frecency", "text": "Relevance (Frecency)" },
         { "value": "visit", "text": "Visit Count" },
         { "value": "recent", "text": "Last Visit" }
       ]
@@ -29,7 +42,8 @@
     {
       "id": "limit",
       "type": "input",
-      "name": "History results number",
+      "name": "Result Limit",
+      "description": "Maximum number of results to display",
       "default_value": "5"
     }
   ]

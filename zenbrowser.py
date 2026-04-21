@@ -2,141 +2,165 @@ import sqlite3
 import tempfile
 import shutil
 import configparser
+import urllib.parse
 import os
 import logging
-import urllib.parse
+from pathlib import Path
+from typing import List, Optional, Any, Tuple
 
 logger = logging.getLogger(__name__)
 
 
 class ZenBrowserDatabase:
+    """Handles interaction with the Zen Browser SQLite database."""
 
     def __init__(self):
-        #   Results order
-        self.order = None
+        self.order: Optional[str] = None
+        self.limit: Optional[int] = None
+        self.search_type: str = "both"
+        self.conn: Optional[sqlite3.Connection] = None
+        self.temp_db_path: Optional[str] = None
 
-        #   Results number
-        self.limit = None
+        db_location = self.search_places()
 
-        #   Set database location
-        db_location = self.searchPlaces()
+        if db_location:
+            try:
+                # Create a temporary copy to avoid database locking issues
+                fd, self.temp_db_path = tempfile.mkstemp()
+                os.close(fd)
+                shutil.copyfile(db_location, self.temp_db_path)
 
-        if db_location is None:
-            logger.error("Zen Browser database not found")
-            return
+                self.conn = sqlite3.connect(self.temp_db_path)
+                self.conn.create_function("hostname", 1, self._get_hostname)
+            except Exception as e:
+                logger.error(f"Failed to initialize database: {e}")
+        else:
+            logger.error("Zen Browser database (places.sqlite) could not be located.")
 
-        #   Temporary  file
-        #   Using FF63 the DB was locked for exclusive use of FF
-        #   TODO:   Regular updates of the temporary file
-        temporary_db_location = tempfile.mktemp()
-        shutil.copyfile(db_location, temporary_db_location)
+    def search_places(self) -> Optional[Path]:
+        """Locates the 'places.sqlite' file in Zen Browser profile directories."""
+        possible_paths = [
+            Path.home() / ".zen",
+            Path.home() / ".var/app/app.zen_browser.zen/.zen"
+        ]
 
-        #   Open Zen Browser database
-        self.conn = sqlite3.connect(temporary_db_location)
-
-        #   External functions
-        self.conn.create_function("hostname", 1, self.__getHostname)
-
-    def searchPlaces(self):
-        #   Zen Browser folder path
-        zen_path = os.path.expanduser("~/.zen/")
-        if not os.path.exists(zen_path):
-            zen_path = os.path.expanduser("~/.var/app/app.zen_browser.zen/.zen/")
-
-        #   Zen Browser profiles configuration file path
-        conf_path = os.path.join(zen_path, "profiles.ini")
-
-        # Debug
-        logger.debug("Config path %s" % conf_path)
-        if not os.path.exists(conf_path):
-            logger.error("Zen Browser profiles.ini not found at %s" % conf_path)
+        zen_path = next((p for p in possible_paths if p.exists()), None)
+        if not zen_path:
+            logger.debug("Zen Browser configuration directory not found in standard locations.")
             return None
 
-        #   Profile config parse
+        conf_path = zen_path / "profiles.ini"
+        if not conf_path.exists():
+            logger.error(f"profiles.ini not found at {conf_path}")
+            return None
+
         profile = configparser.RawConfigParser()
         profile.read(conf_path)
-        
-        # Zen Browser might have different profile naming, but usually Profile0 works for default
-        try:
-            prof_path = profile.get("Profile0", "Path")
-        except (configparser.NoSectionError, configparser.NoOptionError):
-            try:
-                # Try finding any section that starts with Profile and has a Path
-                for section in profile.sections():
-                    if section.startswith("Profile") and profile.has_option(section, "Path"):
-                        prof_path = profile.get(section, "Path")
-                        break
-                else:
-                    logger.error("No profile path found in profiles.ini")
-                    return None
-            except Exception as e:
-                logger.error("Error reading profiles.ini: %s" % e)
-                return None
 
-        #   Sqlite db directory path
-        sql_path = os.path.join(zen_path, prof_path)
-        sql_path = os.path.join(sql_path, "places.sqlite")
+        prof_path = None
+        if profile.has_section("Profile0"):
+            prof_path = profile.get("Profile0", "Path", fallback=None)
 
-        # Debug
-        logger.debug("Sql path %s" % sql_path)
-        if not os.path.exists(sql_path):
-            logger.error("Zen Browser places.sqlite not found at %s" % sql_path)
+        if not prof_path:
+            for section in profile.sections():
+                if section.startswith("Profile") and profile.has_option(section, "Path"):
+                    prof_path = profile.get(section, "Path")
+                    break
+
+        if not prof_path:
+            logger.error("No profile path found in profiles.ini")
             return None
 
+        # Handle both relative and absolute paths in profiles.ini
+        is_relative = profile.getint("Profile0", "IsRelative", fallback=1) == 1
+        sql_path = (zen_path / prof_path if is_relative else Path(prof_path)) / "places.sqlite"
+
+        if not sql_path.exists():
+            logger.error(f"places.sqlite not found at {sql_path}")
+            return None
+
+        logger.debug(f"Found Zen Browser database at: {sql_path}")
         return sql_path
 
-    #   Get hostname from url
-    def __getHostname(self, string):
-        return urllib.parse.urlsplit(string).netloc
+    @staticmethod
+    def _get_hostname(url: str) -> str:
+        """Extracts hostname from a given URL."""
+        return urllib.parse.urlsplit(url).netloc
 
-    def search(self, query_str):
-        if not hasattr(self, 'conn'):
+    def search(self, query_str: str) -> List[Tuple[Any, ...]]:
+        """Searches for bookmarks and history matching the query string."""
+        if not self.conn:
             return []
 
-        #   Search subquery
-        terms = query_str.split(" ")
-        term_where = []
+        terms = query_str.strip().split()
+        if not terms:
+            return []
+
+        term_conditions = []
+        params = []
         for term in terms:
-            term_where.append(
-                f'((url LIKE "%{term}%") OR (moz_bookmarks.title LIKE "%{term}%") OR (moz_places.title LIKE "%{term}%"))'
+            term_conditions.append(
+                "((url LIKE ?) OR (moz_bookmarks.title LIKE ?) OR (moz_places.title LIKE ?))"
             )
+            like_term = f"%{term}%"
+            params.extend([like_term, like_term, like_term])
 
-        where = " AND ".join(term_where)
+        where_clause = " AND ".join(term_conditions)
 
-        #    Order subquery
+        # Filtering based on search_type
+        if self.search_type == "bookmarks":
+            where_clause += " AND moz_bookmarks.id IS NOT NULL"
+        elif self.search_type == "history":
+            where_clause += " AND moz_bookmarks.id IS NULL"
+
         order_by_dict = {
-            "frequency": "frequency",
+            "frecency": "frecency",
             "visit": "visit_count",
             "recent": "last_visit_date",
         }
-        order_by = order_by_dict.get(self.order, "url")
+        order_by = order_by_dict.get(self.order, "frecency")
 
         query = f"""SELECT 
             url, 
-            CASE WHEN moz_bookmarks.title <> '' 
+            CASE WHEN moz_bookmarks.title IS NOT NULL AND moz_bookmarks.title <> '' 
                 THEN moz_bookmarks.title
                 ELSE moz_places.title 
             END AS label,
-            CASE WHEN moz_bookmarks.title <> '' 
+            CASE WHEN moz_bookmarks.title IS NOT NULL AND moz_bookmarks.title <> '' 
                 THEN 1
                 ELSE 0 
             END AS is_bookmark
             FROM moz_places
                 LEFT OUTER JOIN moz_bookmarks ON(moz_bookmarks.fk = moz_places.id)
-            WHERE {where}
+            WHERE {where_clause}
             ORDER BY is_bookmark DESC, {order_by} DESC
-            LIMIT {self.limit};"""
+            LIMIT ?;"""
+        
+        # Use provided limit, but allow 0. Default to 5 if None.
+        limit = self.limit if self.limit is not None else 5
+        params.append(limit)
 
-        #   Query execution
-        rows = []
         try:
             cursor = self.conn.cursor()
-            cursor.execute(query)
-            rows = cursor.fetchall()
+            cursor.execute(query, params)
+            return cursor.fetchall()
+        except sqlite3.Error as e:
+            logger.error(f"Database query error: {e}")
+            return []
         except Exception as e:
-            logger.error("Error in query (%s) execution: %s" % (query, e))
-        return rows
+            logger.error(f"Unexpected error during search: {e}")
+            return []
 
     def close(self):
-        if hasattr(self, 'conn'):
+        """Closes the database connection and removes the temporary file."""
+        if self.conn:
             self.conn.close()
+            self.conn = None
+        
+        if self.temp_db_path and os.path.exists(self.temp_db_path):
+            try:
+                os.remove(self.temp_db_path)
+            except Exception as e:
+                logger.error(f"Error removing temporary database file: {e}")
+            finally:
+                self.temp_db_path = None

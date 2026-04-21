@@ -1,9 +1,11 @@
 import re
+import logging
+from typing import List, Optional
+
 from ulauncher.api.client.Extension import Extension
 from ulauncher.api.client.EventListener import EventListener
 from ulauncher.api.shared.event import (
     KeywordQueryEvent,
-    ItemEnterEvent,
     PreferencesEvent,
     PreferencesUpdateEvent,
     SystemExitEvent,
@@ -13,13 +15,14 @@ from ulauncher.api.shared.action.RenderResultListAction import RenderResultListA
 from ulauncher.api.shared.action.OpenUrlAction import OpenUrlAction
 from zenbrowser import ZenBrowserDatabase
 
+logger = logging.getLogger(__name__)
+
 
 class ZenBrowserExtension(Extension):
+    """Zen Browser extension for Ulauncher."""
 
     def __init__(self):
-        super(ZenBrowserExtension, self).__init__()
-
-        #   Zen Browser database object
+        super().__init__()
         self.database = ZenBrowserDatabase()
 
         self.subscribe(KeywordQueryEvent, KeywordQueryEventListener())
@@ -29,58 +32,74 @@ class ZenBrowserExtension(Extension):
 
 
 class PreferencesEventListener(EventListener):
+    """Handles initial preference loading."""
 
     def on_event(self, event: PreferencesEvent, extension: ZenBrowserExtension):
-        extension.database.order = event.preferences["order"]
-        extension.database.limit = event.preferences["limit"]
+        extension.database.order = event.preferences.get("order")
+        extension.database.search_type = event.preferences.get("search_type", "both")
+        try:
+            extension.database.limit = int(event.preferences.get("limit", 5))
+        except (ValueError, TypeError):
+            extension.database.limit = 5
+            logger.warning("Invalid limit preference provided, defaulting to 5.")
 
 
 class PreferencesUpdateEventListener(EventListener):
+    """Handles real-time preference updates."""
 
     def on_event(self, event: PreferencesUpdateEvent, extension: ZenBrowserExtension):
         if event.id == "order":
             extension.database.order = event.new_value
+        elif event.id == "search_type":
+            extension.database.search_type = event.new_value
         elif event.id == "limit":
-            extension.database.limit = event.new_value
+            try:
+                extension.database.limit = int(event.new_value)
+            except (ValueError, TypeError):
+                logger.warning(f"Invalid limit value updated: {event.new_value}")
 
 
 class SystemExitEventListener(EventListener):
+    """Handles extension shutdown."""
 
     def on_event(self, _: SystemExitEvent, extension: ZenBrowserExtension):
         extension.database.close()
 
 
 class KeywordQueryEventListener(EventListener):
+    """Handles keyword queries from Ulauncher."""
 
-    def on_event(self, event: KeywordQueryEvent, extension: ZenBrowserExtension):
-        query = event.get_argument() or ""
+    DOMAIN_REGEX = re.compile(
+        r'^([a-z0-9]+(-[a-z0-9]+)*\.)+[a-z]{2,}(/.*)?$', re.IGNORECASE
+    )
 
-        #   Empty query
+    def on_event(self, event: KeywordQueryEvent, extension: ZenBrowserExtension) -> RenderResultListAction:
+        # Strip ensures leading/trailing spaces don't break detection
+        query: str = (event.get_argument() or "").strip()
+
         if not query:
-            return RenderResultListAction(
-                [
-                    ExtensionResultItem(
-                        icon="images/icon.png",
-                        name="Zen Browser Search",
-                        description="Search bookmarks/history or type a URL",
-                        highlightable=False,
-                    )
-                ]
-            )
+            return RenderResultListAction([
+                ExtensionResultItem(
+                    icon="images/icon.png",
+                    name="Zen Browser Search",
+                    description="Search bookmarks/history or type a URL",
+                    highlightable=False,
+                )
+            ])
 
-        items = []
+        items: List[ExtensionResultItem] = []
 
-        #   Check if query is a URL
-        is_url = False
-        url_to_open = query
+        # URL detection
+        url_to_open: Optional[str] = None
+
+        # 1. Explicit protocol (triggers as soon as http:// etc. is typed)
         if re.match(r'^(?:http|ftp)s?://', query, re.IGNORECASE):
-            is_url = True
-        elif re.match(r'^([a-z0-9]+(-[a-z0-9]+)*\.)+[a-z]{2,}(/.*)?$', query, re.IGNORECASE):
-            is_url = True
-            if not query.startswith(('http://', 'https://')):
-                url_to_open = 'https://' + query
+            url_to_open = query
+        # 2. Domain-like structure (e.g. google.com or www.google.com)
+        elif self.DOMAIN_REGEX.match(query) or query.lower().startswith("www."):
+            url_to_open = query if query.lower().startswith(("http://", "https://")) else f"https://{query}"
 
-        if is_url:
+        if url_to_open:
             items.append(
                 ExtensionResultItem(
                     icon="images/icon.png",
@@ -91,14 +110,9 @@ class KeywordQueryEventListener(EventListener):
                 )
             )
 
-        #   Search Zen Browser bookmarks and history
+        # Database search
         results = extension.database.search(query)
-
-        for row in results:
-            url = row[0]
-            label = row[1]
-            is_bookmark = row[2]
-
+        for url, label, _ in results:
             items.append(
                 ExtensionResultItem(
                     icon="images/icon.png",
