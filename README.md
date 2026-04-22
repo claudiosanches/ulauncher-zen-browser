@@ -1,8 +1,10 @@
 # Ulauncher Zen Browser Search
 
+Simple [Ulauncher](https://ulauncher.io) extension for searching bookmarks and history in Zen Browser.
+
 ![screenshot](images/screenshot.png)
 
-Simple [Ulauncher](https://ulauncher.io) extension for searching bookmarks and history in Zen Browser.
+*Recommendation: If you like the icons in the screenshot, I'm using the [Tela-circle-icon-theme](https://github.com/vinceliuice/Tela-circle-icon-theme) on my machine!*
 
 ## Installation
 
