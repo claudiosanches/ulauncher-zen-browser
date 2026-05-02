@@ -8,11 +8,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.1.0] - 2026-04-21
 
 ### Changed
+
 - Switched the extension icon from PNG to SVG for better scaling and quality.
 
 ## [1.0.0] - 2026-04-21
 
 ### Added
+
 - Initial release of the Zen Browser Search extension.
 - Support for searching bookmarks and history in Zen Browser.
 - Support for both local (`~/.zen`) and Flatpak installations.
